@@ -1,0 +1,74 @@
+# =====================================================
+# 🧍 Microservices Project Git Ignore
+# Applies to: customer-service, account-service,
+# transaction-service, and notification-service
+# =====================================================
+
+# ---- Node.js dependencies ----
+node_modules/
+**/node_modules/
+
+# ---- Logs ----
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Environment Variables ----
+.env
+**/.env
+
+# ---- Build outputs ----
+dist/
+build/
+coverage/
+tmp/
+temp/
+.DS_Store
+
+# ---- Docker ----
+*.pid
+*.seed
+docker-compose.override.yml
+**/docker-compose.override.yml
+**/Dockerfile~
+
+# ---- Kubernetes and Deployment Files ----
+*.yaml~
+*.yml~
+k8s/*.bak
+k8s/*-old.yaml
+
+# ---- IDE / Editor Config ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- OS Specific ----
+Thumbs.db
+.DS_Store
+
+# ---- Local MongoDB Data (if mounted) ----
+mongo-data/
+mongo-*/data/
+volumes/
+data/
+**/data/
+
+# ---- Misc ----
+*.tgz
+*.zip
+*.tar.gz
+
+# ---- Jest / Testing ----
+coverage/
+*.lcov
+.nyc_output/
+
+# ---- Optional: Ignore all service build folders ----
+customer-service/node_modules/
+account-service/node_modules/
+transaction-service/node_modules/
+notification-service/node_modules/
