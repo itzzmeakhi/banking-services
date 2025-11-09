@@ -1,0 +1,25 @@
+{
+  "name": "customer-service",
+  "version": "1.0.0",
+  "description": "Customer microservice for eBank",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node ./seeder.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "mongoose": "^8.19.3",
+    "morgan": "^1.10.0",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

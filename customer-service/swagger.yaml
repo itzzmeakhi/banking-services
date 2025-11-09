@@ -1,0 +1,275 @@
+openapi: 3.0.0
+info:
+  title: Customer Service API
+  version: 1.0.0
+  description: |
+    RESTful API for managing customers and their KYC (Know Your Customer) status.
+    Built with Express and MongoDB.
+
+tags:
+  - name: Customers
+    description: Customer CRUD operations
+  - name: KYC
+    description: Customer KYC management
+
+paths:
+  /:
+    get:
+      tags: [Customers]
+      summary: Get all customers
+      description: Retrieve all customers from the database.
+      responses:
+        '200':
+          description: Successfully retrieved all customers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCustomersResponse'
+              example:
+                success: true
+                count: 2
+                data:
+                  - _id: 64f92b3e8cbbf2001f9b4e12
+                    name: John Doe
+                    email: john@example.com
+                    phone: +919876543210
+                    address: "123 Main Street, Mumbai"
+                    kyc_status: VERIFIED
+                  - _id: 64f92b3e8cbbf2001f9b4e13
+                    name: Jane Doe
+                    email: jane@example.com
+                    phone: +919812345678
+                    address: "456 Park Avenue, Delhi"
+                    kyc_status: PENDING
+        '500':
+          description: Internal server error
+    post:
+      tags: [Customers]
+      summary: Create new customer
+      description: Add a new customer record to the database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreateRequest'
+            example:
+              name: John Doe
+              email: john@example.com
+              phone: +919876543210
+              address: "123 Main Street, Mumbai"
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '400':
+          description: Invalid request data
+
+  /{id}:
+    get:
+      tags: [Customers]
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the customer
+      responses:
+        '200':
+          description: Successfully retrieved customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          description: Customer not found
+    put:
+      tags: [Customers]
+      summary: Update customer details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdateRequest'
+            example:
+              name: Jane Doe
+              address: "789 Lake View Road, Hyderabad"
+      responses:
+        '200':
+          description: Successfully updated customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          description: Customer not found
+    delete:
+      tags: [Customers]
+      summary: Delete customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the customer
+      responses:
+        '200':
+          description: Customer deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+              example:
+                success: true
+                message: Customer deleted
+        '404':
+          description: Customer not found
+
+  /{id}/kyc:
+    patch:
+      tags: [KYC]
+      summary: Update KYC status
+      description: Update the customer's KYC verification status.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Customer ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KYCUpdateRequest'
+            example:
+              kyc_status: VERIFIED
+      responses:
+        '200':
+          description: Successfully updated KYC status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '400':
+          description: Invalid KYC status
+        '404':
+          description: Customer not found
+
+components:
+  schemas:
+    Customer:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f92b3e8cbbf2001f9b4e12
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          example: john@example.com
+        phone:
+          type: string
+          example: +919876543210
+        address:
+          type: string
+          example: 123 Main Street, Mumbai
+        kyc_status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+          example: VERIFIED
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-11-01T10:30:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2025-11-06T10:45:00.000Z
+
+    CustomerCreateRequest:
+      type: object
+      required:
+        - name
+        - email
+        - phone
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+
+    CustomerUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+
+    KYCUpdateRequest:
+      type: object
+      required:
+        - kyc_status
+      properties:
+        kyc_status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+
+    CustomerResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Customer'
+
+    GetCustomersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        count:
+          type: integer
+          example: 3
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer'
+
+    DeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Customer deleted

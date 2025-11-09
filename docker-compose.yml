@@ -1,0 +1,258 @@
+version: "3.9"
+
+services:
+
+  # 🗄️ MongoDB
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' localhost:27017 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - banking_network
+
+  # 🧑‍💼 Customer Service (API)
+  customer-service:
+    build: ./customer-service
+    container_name: customer-service
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+      customer-seed:
+        condition: service_completed_successfully
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - MONGO_URI=mongodb://mongo:27017/customerdb
+      - SERVICE_NAME=customer-service
+    networks:
+      - banking_network
+
+  # 🌱 Customer Seeder (auto runs once)
+  customer-seed:
+    build: ./customer-service
+    container_name: customer-seed
+    command: >
+      sh -c "
+        echo '⏳ Waiting for Mongo...';
+        until nc -z mongo 27017; do sleep 1; done;
+        echo '✅ MongoDB is up. Seeding customers...';
+        npm run seed;
+        echo '🌱 Seeding complete.'
+      "
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/customerdb
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - banking_network
+    restart: "no"
+
+  # 🧮 Transaction Database
+  transaction-db:
+    image: postgres:16
+    container_name: transaction-db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Password
+      POSTGRES_DB: transactions
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./transaction-service/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata_transaction:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d transactions"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - banking_network
+
+  # 💸 Transaction Service
+  transaction-service:
+    build: ./transaction-service
+    container_name: transaction-service
+    depends_on:
+      transaction-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      customer-service:
+        condition: service_started
+    environment:
+      - DB_HOST=transaction-db
+      - DB_PORT=5432
+      - DB_USER=admin
+      - DB_PASSWORD=Password
+      - DB_NAME=transactions
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - CUSTOMER_SERVICE_URL=http://customer-service:5001/customers
+      - TRANSACTION_SERVICE_URL=http://transaction-service:3000/transactions
+    ports:
+      - "3000:3000"
+    networks:
+      - banking_network
+
+  # 🏦 Account Database
+  account-db:
+    image: postgres:16
+    container_name: account-db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Password
+      POSTGRES_DB: accounts_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_account:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d accounts_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - banking_network
+
+  # 🏦 Account Service (FastAPI + PostgreSQL)
+  account-service:
+    build: ./account-service
+    container_name: account-service
+    restart: always
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      account-seed:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_USER=admin
+      - DB_PASSWORD=Password
+      - DB_HOST=account-db
+      - DB_PORT=5432
+      - DB_NAME=accounts_db
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - CUSTOMER_SERVICE_URL=http://customer-service:5001/customers
+      - TRANSACTION_SERVICE_URL=http://transaction-service:3000/api/transactions
+    networks:
+      - banking_network
+
+  # 🌱 Account Seeder
+  account-seed:
+    build: ./account-service
+    container_name: account-seed
+    command: >
+      sh -c "
+        echo '⏳ Waiting for Postgres...';
+        echo '✅ DB is ready. Starting seeding...';
+        python scripts/seed_accounts.py;
+        echo '🌱 Seeding completed successfully!'
+      "
+    environment:
+      - DB_USER=admin
+      - DB_PASSWORD=Password
+      - DB_HOST=account-db
+      - DB_PORT=5432
+      - DB_NAME=accounts_db
+      - CSV_PATH=./data/accounts.csv
+    depends_on:
+      account-db:
+        condition: service_healthy
+    volumes:
+      - ./account-service/data:/app/data:ro
+      - ./account-service/scripts:/app/scripts:ro
+    networks:
+      - banking_network
+    restart: "no"
+
+  # 🔔 Notification Database
+  notification-db:
+    image: postgres:16
+    container_name: notification-db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Password
+      POSTGRES_DB: notifications
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_notification:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d notifications"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - banking_network
+
+  # 🔔 Notification Service
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - DB_HOST=notification-db
+      - DB_PORT=5432
+      - DB_USER=admin
+      - DB_PASSWORD=Password
+      - DB_NAME=notifications
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+    ports:
+      - "3003:3003"
+    networks:
+      - banking_network
+
+  # 🐰 RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banking_network
+
+# ==========================================================
+# VOLUMES & NETWORKS
+# ==========================================================
+volumes:
+  mongo_data:
+  pgdata_transaction:
+  pgdata_account:
+  pgdata_notification:
+
+networks:
+  banking_network:
+    driver: bridge

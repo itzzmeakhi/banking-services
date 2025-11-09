@@ -1,0 +1,15 @@
+version: '3.9'
+
+services:
+  account_service:
+    build: .
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: account-postgres-compose-1   # Use existing Postgres container name
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: accounts_db
+    depends_on:
+      - account-postgres-compose-1
