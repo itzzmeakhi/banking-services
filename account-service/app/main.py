@@ -15,6 +15,10 @@ CUSTOMER_SERVICE_URL = os.getenv("CUSTOMER_SERVICE_URL", "http://customer-servic
 # Create DB tables if they don't exist
 models.Base.metadata.create_all(bind=engine)
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 # ---------------------------------
 # CREATE ACCOUNT (Integrated with Customer Service)
 # ---------------------------------
